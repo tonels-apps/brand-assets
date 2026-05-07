@@ -1,0 +1,132 @@
+name: Deploy Brand Assets to Cloudflare R2
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+    inputs:
+      force_sync:
+        description: 'Force sync all files (ignore checksums)'
+        required: false
+        default: 'false'
+        type: boolean
+
+concurrency:
+  group: deploy-assets
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    name: Upload assets to Cloudflare R2
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Configure AWS CLI for Cloudflare R2
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+        run: |
+          aws configure set aws_access_key_id "$AWS_ACCESS_KEY_ID"
+          aws configure set aws_secret_access_key "$AWS_SECRET_ACCESS_KEY"
+          aws configure set region auto
+          aws configure set output json
+
+      - name: Upload icons
+        env:
+          R2_ENDPOINT: https://${{ secrets.CLOUDFLARE_ACCOUNT_ID }}.r2.cloudflarestorage.com
+          R2_BUCKET: ${{ secrets.R2_BUCKET_NAME }}
+          FORCE_SYNC: ${{ inputs.force_sync || 'false' }}
+        run: |
+          EXTRA_FLAGS=""
+          if [ "$FORCE_SYNC" = "true" ]; then
+            EXTRA_FLAGS="--size-only"
+          fi
+          aws s3 sync icons/ "s3://${R2_BUCKET}/icons/" \
+            --endpoint-url "$R2_ENDPOINT" \
+            --cache-control "public, max-age=31536000, immutable" \
+            --delete \
+            $EXTRA_FLAGS
+          echo "✅ icons/ uploaded"
+
+      - name: Upload logo/badge
+        env:
+          R2_ENDPOINT: https://${{ secrets.CLOUDFLARE_ACCOUNT_ID }}.r2.cloudflarestorage.com
+          R2_BUCKET: ${{ secrets.R2_BUCKET_NAME }}
+          FORCE_SYNC: ${{ inputs.force_sync || 'false' }}
+        run: |
+          EXTRA_FLAGS=""
+          if [ "$FORCE_SYNC" = "true" ]; then
+            EXTRA_FLAGS="--size-only"
+          fi
+          aws s3 sync logo/badge/ "s3://${R2_BUCKET}/logo/badge/" \
+            --endpoint-url "$R2_ENDPOINT" \
+            --cache-control "public, max-age=31536000, immutable" \
+            --delete \
+            $EXTRA_FLAGS
+          echo "✅ logo/badge/ uploaded"
+
+      - name: Upload logo/icons
+        env:
+          R2_ENDPOINT: https://${{ secrets.CLOUDFLARE_ACCOUNT_ID }}.r2.cloudflarestorage.com
+          R2_BUCKET: ${{ secrets.R2_BUCKET_NAME }}
+          FORCE_SYNC: ${{ inputs.force_sync || 'false' }}
+        run: |
+          EXTRA_FLAGS=""
+          if [ "$FORCE_SYNC" = "true" ]; then
+            EXTRA_FLAGS="--size-only"
+          fi
+          aws s3 sync logo/icons/ "s3://${R2_BUCKET}/logo/icons/" \
+            --endpoint-url "$R2_ENDPOINT" \
+            --cache-control "public, max-age=31536000, immutable" \
+            --delete \
+            $EXTRA_FLAGS
+          echo "✅ logo/icons/ uploaded"
+
+      - name: Upload colors
+        env:
+          R2_ENDPOINT: https://${{ secrets.CLOUDFLARE_ACCOUNT_ID }}.r2.cloudflarestorage.com
+          R2_BUCKET: ${{ secrets.R2_BUCKET_NAME }}
+          FORCE_SYNC: ${{ inputs.force_sync || 'false' }}
+        run: |
+          EXTRA_FLAGS=""
+          if [ "$FORCE_SYNC" = "true" ]; then
+            EXTRA_FLAGS="--size-only"
+          fi
+          aws s3 sync colors/ "s3://${R2_BUCKET}/colors/" \
+            --endpoint-url "$R2_ENDPOINT" \
+            --cache-control "public, max-age=86400" \
+            --delete \
+            $EXTRA_FLAGS
+          echo "✅ colors/ uploaded"
+
+      - name: Upload guidelines
+        env:
+          R2_ENDPOINT: https://${{ secrets.CLOUDFLARE_ACCOUNT_ID }}.r2.cloudflarestorage.com
+          R2_BUCKET: ${{ secrets.R2_BUCKET_NAME }}
+          FORCE_SYNC: ${{ inputs.force_sync || 'false' }}
+        run: |
+          EXTRA_FLAGS=""
+          if [ "$FORCE_SYNC" = "true" ]; then
+            EXTRA_FLAGS="--size-only"
+          fi
+          aws s3 sync guildlines/ "s3://${R2_BUCKET}/guidelines/" \
+            --endpoint-url "$R2_ENDPOINT" \
+            --cache-control "public, max-age=86400" \
+            --delete \
+            $EXTRA_FLAGS
+          echo "✅ guidelines/ uploaded"
+
+      - name: Print deployed file list
+        env:
+          R2_ENDPOINT: https://${{ secrets.CLOUDFLARE_ACCOUNT_ID }}.r2.cloudflarestorage.com
+          R2_BUCKET: ${{ secrets.R2_BUCKET_NAME }}
+        run: |
+          echo "📦 Files in bucket:"
+          aws s3 ls "s3://${R2_BUCKET}/" --recursive --endpoint-url "$R2_ENDPOINT" \
+            --human-readable --summarize
